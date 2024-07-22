@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import requests
+import datetime
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
@@ -42,7 +43,14 @@ while True:
     # Find User
     url = 'http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/'
     params = {'key' : API_KEY, 'steamids' : str(target_user_id)}
-    r = requests.get(url, params = params)
+    
+    repeat_cnt = 0
+    while repeat_cnt < 5: 
+        r = requests.get(url, params = params)
+        
+        if r.status_code == 200:
+            break
+        repeat_cnt += 1
 
     if r.status_code != 200:
         print(r.text)
@@ -62,14 +70,23 @@ while True:
 
         with engine.begin() as conn:
             conn.execute(text('delete from Steam_User where steamid in (select steamid from Temp_User)'))
-            
+        
+        NOW = datetime.datetime.now()
+        df_user_temp['CreateAt'] = NOW
         df_user_temp.to_sql('Steam_User', engine, if_exists='append', index = False)
     
 
     # Collect Game Playtime
     url = 'http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/'
     params = {'key' : API_KEY, 'steamid' : target_user_id}
-    r = requests.get(url, params = params)
+    
+    repeat_cnt = 0
+    while repeat_cnt < 5: 
+        r = requests.get(url, params = params)
+        
+        if r.status_code == 200:
+            break
+        repeat_cnt += 1
 
     if r.status_code != 200:
         print(r.text)
@@ -88,7 +105,10 @@ while True:
 
         with engine.begin() as conn:
             conn.execute(text('delete from Steam_Playtime where steamid in (select steamid from Temp_Playtime)'))
-            
+
+        NOW = datetime.datetime.now()
+        df_playtime['CreateAt'] = NOW
+
         df_playtime.to_sql('Steam_Playtime', engine, if_exists='append', index = False)
         
-    time.sleep(1.5)
+    time.sleep(2)
